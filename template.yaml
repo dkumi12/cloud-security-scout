@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Cloud Security Scout - scheduled scanner (S3, SecurityGroups, RDS) -> DynamoDB + SNS + Slack
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 120
+    MemorySize: 256
+
+Resources:
+
+  CloudSecurityScoutTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: CloudSecurityScoutFindings
+      AttributeDefinitions:
+        - AttributeName: finding_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: finding_id
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+  CloudSecurityScoutTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: cloud-security-scout-alerts
+
+  CloudSecurityScoutRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: CloudSecurityScoutInlinePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: CloudWatchLogs
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "arn:aws:logs:*:*:*"
+              - Sid: DynamoDBAccess
+                Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:Query
+                  - dynamodb:GetItem
+                Resource: !GetAtt CloudSecurityScoutTable.Arn
+              - Sid: SNSPublish
+                Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref CloudSecurityScoutTopic
+              - Sid: DescribeEC2
+                Effect: Allow
+                Action:
+                  - ec2:DescribeSecurityGroups
+                  - ec2:DescribeSecurityGroupRules
+                  - ec2:DescribeInstances
+                Resource: "*"
+              - Sid: S3Read
+                Effect: Allow
+                Action:
+                  - s3:GetBucketAcl
+                  - s3:GetBucketPolicy
+                  - s3:GetPublicAccessBlock
+                  - s3:ListAllMyBuckets
+                Resource: "*"
+              - Sid: RDSDescribe
+                Effect: Allow
+                Action:
+                  - rds:DescribeDBInstances
+                Resource: "*"
+              - Sid: SecretsAccessPlaceholder
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - ssm:GetParameter
+                Resource: "*"
+
+  CloudSecurityScoutFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: cloud-security-scout
+      Handler: app.lambda_handler
+      Role: !GetAtt CloudSecurityScoutRole.Arn
+      Environment:
+        Variables:
+          FINDINGS_TABLE: !Ref CloudSecurityScoutTable
+          ALERT_TOPIC_ARN: !Ref CloudSecurityScoutTopic
+          SLACK_WEBHOOK_URL: "" # set via Parameter or Secrets Manager in prod
+          SCAN_REGIONS: ""       # Optional: comma-separated list of regions
+      Events:
+        DailySchedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(24 hours)
+            Name: CloudSecurityScoutDailySchedule
+
+Outputs:
+  FunctionName:
+    Description: "Cloud Security Scout Lambda Name"
+    Value: !Ref CloudSecurityScoutFunction
+  FindingsTable:
+    Description: "DynamoDB table for findings"
+    Value: !Ref CloudSecurityScoutTable
+  SNSTopic:
+    Description: "SNS topic for alerts"
+    Value: !Ref CloudSecurityScoutTopic

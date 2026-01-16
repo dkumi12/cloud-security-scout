@@ -1,0 +1,20 @@
+version = 0.1
+
+[default.deploy]
+stack_name = "cloud-security-scout"
+region = "us-east-1"
+confirm_changeset = true       # Confirm changes before deploy (y)
+capabilities = "CAPABILITY_IAM"
+disable_rollback = true        # Disable rollback (y)
+s3_bucket = ""                 # fill if sam asked for an artifacts bucket
+s3_prefix = "cloud-security-scout"
+
+[default.deploy.parameters]
+stack_name = "cloud-security-scout"
+resolve_s3 = true
+s3_prefix = "cloud-security-scout"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+disable_rollback = true
+image_repositories = []
