@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Security Scout Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            padding: 2rem;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            color: #1e3c72;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        .status-bar {
+            display: flex;
+            gap: 1rem;
+            margin: 1rem 0;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+        
+        .status-badge.live {
+            background: #10b981;
+            color: white;
+        }
+        
+        .setup-notice {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            color: #92400e;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin: 2rem 0;
+        }
+        
+        .setup-notice h3 {
+            margin-bottom: 0.5rem;
+        }
+        
+        .setup-notice code {
+            background: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .demo-data {
+            background: #dbeafe;
+            border: 2px solid #3b82f6;
+            color: #1e40af;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            text-align: center;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-left: 4px solid;
+        }
+        
+        .stat-card.critical { border-color: #dc2626; }
+        .stat-card.high { border-color: #ea580c; }
+        .stat-card.medium { border-color: #f59e0b; }
+        .stat-card.low { border-color: #3b82f6; }
+        .stat-card.total { border-color: #6366f1; }
+        
+        .stat-card h3 {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .stat-card .value {
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+        
+        .stat-card.critical .value { color: #dc2626; }
+        .stat-card.high .value { color: #ea580c; }
+        .stat-card.medium .value { color: #f59e0b; }
+        .stat-card.low .value { color: #3b82f6; }
+        .stat-card.total .value { color: #6366f1; }
+        
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .chart-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .chart-container h2 {
+            margin-bottom: 1.5rem;
+            color: #1e3c72;
+            font-size: 1.3rem;
+        }
+        
+        .findings-table {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow-x: auto;
+        }
+        
+        .findings-table h2 {
+            margin-bottom: 1.5rem;
+            color: #1e3c72;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        th {
+            background: #f3f4f6;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        tr:hover {
+            background: #f9fafb;
+        }
+        
+        .severity-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .severity-critical {
+            background: #fee2e2;
+            color: #dc2626;
+        }
+        
+        .severity-high {
+            background: #ffedd5;
+            color: #ea580c;
+        }
+        
+        .severity-medium {
+            background: #fef3c7;
+            color: #d97706;
+        }
+        
+        .severity-low {
+            background: #dbeafe;
+            color: #2563eb;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: white;
+            font-size: 1.2rem;
+        }
+        
+        .error {
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        
+        .refresh-btn {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+        
+        .refresh-btn:hover {
+            background: #4f46e5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔒 Cloud Security Scout</h1>
+            <p>AWS Security Monitoring Dashboard</p>
+            <div class="status-bar">
+                <span class="status-badge live">● DEMO MODE</span>
+                <button class="refresh-btn" onclick="location.reload()">🔄 Refresh</button>
+            </div>
+            <p id="lastUpdated" style="margin-top: 1rem; color: #999; font-size: 0.9rem;"></p>
+            
+            <div class="setup-notice">
+                <h3>📋 Setup Required</h3>
+                <p>This dashboard currently shows demo data. To see real findings:</p>
+                <ol style="text-align: left; margin: 1rem 0 0 2rem; line-height: 1.8;">
+                    <li>Run the scanner: <code>aws lambda invoke --function-name cloud-security-scout output.json</code></li>
+                    <li>Scanner will populate DynamoDB with findings</li>
+                    <li>Dashboard will auto-update from DynamoDB</li>
+                </ol>
+            </div>
+        </div>
+
+        <div id="dashboard">
+            <!-- Stats Grid -->
+            <div class="stats-grid">
+                <div class="stat-card total">
+                    <h3>Total Findings</h3>
+                    <div class="value" id="totalFindings">0</div>
+                </div>
+                <div class="stat-card critical">
+                    <h3>Critical</h3>
+                    <div class="value" id="criticalFindings">0</div>
+                </div>
+                <div class="stat-card high">
+                    <h3>High</h3>
+                    <div class="value" id="highFindings">0</div>
+                </div>
+                <div class="stat-card medium">
+                    <h3>Medium</h3>
+                    <div class="value" id="mediumFindings">0</div>
+                </div>
+                <div class="stat-card low">
+                    <h3>Low</h3>
+                    <div class="value" id="lowFindings">0</div>
+                </div>
+            </div>
+
+            <div class="demo-data">
+                📊 Showing demo data - Run scanner Lambda to see real security findings
+            </div>
+
+            <!-- Charts -->
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h2>Findings by Severity</h2>
+                    <canvas id="severityChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h2>Findings by Resource Type</h2>
+                    <canvas id="resourceChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Findings Table -->
+            <div class="findings-table">
+                <h2>Recent Security Findings (Demo Data)</h2>
+                <table id="findingsTable">
+                    <thead>
+                        <tr>
+                            <th>Severity</th>
+                            <th>Resource Type</th>
+                            <th>Resource ID</th>
+                            <th>Region</th>
+                            <th>Description</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody id="findingsBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Demo data for visualization
+        const demoData = {
+            summary: {
+                total: 8,
+                critical: 2,
+                high: 3,
+                medium: 2,
+                low: 1,
+                by_resource_type: {
+                    'S3 Bucket': 3,
+                    'Security Group': 3,
+                    'RDS Instance': 2
+                }
+            },
+            findings: [
+                {
+                    severity: 'CRITICAL',
+                    resource_type: 'S3 Bucket',
+                    resource_id: 'my-public-bucket',
+                    region: 'us-east-1',
+                    description: 'S3 bucket is publicly accessible',
+                    timestamp: new Date().toISOString()
+                },
+                {
+                    severity: 'CRITICAL',
+                    resource_type: 'RDS Instance',
+                    resource_id: 'prod-database',
+                    region: 'us-east-1',
+                    description: 'RDS instance is publicly accessible',
+                    timestamp: new Date().toISOString()
+                },
+                {
+                    severity: 'HIGH',
+                    resource_type: 'Security Group',
+                    resource_id: 'sg-0a1b2c3d4e5f',
+                    region: 'us-east-1',
+                    description: 'Security group allows 0.0.0.0/0 on port 22 (SSH)',
+                    timestamp: new Date().toISOString()
+                },
+                {
+                    severity: 'HIGH',
+                    resource_type: 'Security Group',
+                    resource_id: 'sg-9z8y7x6w5v4',
+                    region: 'us-west-2',
+                    description: 'Security group allows 0.0.0.0/0 on port 3389 (RDP)',
+                    timestamp: new Date().toISOString()
+                },
+                {
+                    severity: 'HIGH',
+                    resource_type: 'S3 Bucket',
+                    resource_id: 'legacy-data-bucket',
+                    region: 'us-east-1',
+                    description: 'S3 bucket has overly permissive bucket policy',
+                    timestamp: new Date().toISOString()
+                },
+                {
+                    severity: 'MEDIUM',
+                    resource_type: 'Security Group',
+                    resource_id: 'sg-1a2b3c4d5e6',
+                    region: 'us-east-1',
+                    description: 'Security group allows broad IP range on sensitive port',
+                    timestamp: new Date().toISOString()
+                },
+                {
+                    severity: 'MEDIUM',
+                    resource_type: 'RDS Instance',
+                    resource_id: 'dev-database',
+                    region: 'us-west-2',
+                    description: 'RDS backup retention period is less than 7 days',
+                    timestamp: new Date().toISOString()
+                },
+                {
+                    severity: 'LOW',
+                    resource_type: 'S3 Bucket',
+                    resource_id: 'logs-archive',
+                    region: 'us-east-1',
+                    description: 'S3 bucket versioning is not enabled',
+                    timestamp: new Date().toISOString()
+                }
+            ]
+        };
+
+        let severityChart, resourceChart;
+
+        function loadDashboard() {
+            const data = demoData;
+
+            // Update stats
+            document.getElementById('totalFindings').textContent = data.summary.total;
+            document.getElementById('criticalFindings').textContent = data.summary.critical;
+            document.getElementById('highFindings').textContent = data.summary.high;
+            document.getElementById('mediumFindings').textContent = data.summary.medium;
+            document.getElementById('lowFindings').textContent = data.summary.low;
+
+            // Update last updated time
+            document.getElementById('lastUpdated').textContent = 
+                `Last updated: ${new Date().toLocaleString()}`;
+
+            // Render charts
+            renderSeverityChart(data.summary);
+            renderResourceChart(data.summary.by_resource_type);
+
+            // Render findings table
+            renderFindingsTable(data.findings);
+        }
+
+        function renderSeverityChart(summary) {
+            const ctx = document.getElementById('severityChart');
+            
+            if (severityChart) {
+                severityChart.destroy();
+            }
+
+            severityChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Critical', 'High', 'Medium', 'Low'],
+                    datasets: [{
+                        data: [
+                            summary.critical,
+                            summary.high,
+                            summary.medium,
+                            summary.low
+                        ],
+                        backgroundColor: [
+                            '#dc2626',
+                            '#ea580c',
+                            '#f59e0b',
+                            '#3b82f6'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderResourceChart(resourceData) {
+            const ctx = document.getElementById('resourceChart');
+            
+            if (resourceChart) {
+                resourceChart.destroy();
+            }
+
+            const labels = Object.keys(resourceData);
+            const data = Object.values(resourceData);
+
+            resourceChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Findings',
+                        data: data,
+                        backgroundColor: '#6366f1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderFindingsTable(findings) {
+            const tbody = document.getElementById('findingsBody');
+            tbody.innerHTML = '';
+
+            findings.forEach(finding => {
+                const row = document.createElement('tr');
+                
+                const severity = finding.severity;
+                const severityClass = `severity-${severity.toLowerCase()}`;
+                
+                row.innerHTML = `
+                    <td><span class="severity-badge ${severityClass}">${severity}</span></td>
+                    <td>${finding.resource_type}</td>
+                    <td style="font-family: monospace; font-size: 0.85rem;">${finding.resource_id}</td>
+                    <td>${finding.region}</td>
+                    <td>${finding.description}</td>
+                    <td style="font-size: 0.85rem;">${new Date(finding.timestamp).toLocaleString()}</td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+        }
+
+        // Load dashboard on page load
+        window.addEventListener('DOMContentLoaded', loadDashboard);
+    </script>
+</body>
+</html>
